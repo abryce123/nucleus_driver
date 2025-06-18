@@ -32,6 +32,8 @@ class App(cmd2.Cmd):
         self.intro = style(''.join(intro), fg=Fg.BLUE, bold=True)
         self.intro += style(f' Version: {__version__}\r\n', fg=Fg.MAGENTA)
 
+        self.streaming_socket = False
+
         del cmd2.Cmd.do_edit
         del cmd2.Cmd.do_alias
         del cmd2.Cmd.do_macro
@@ -63,7 +65,7 @@ class App(cmd2.Cmd):
 
             self.nucleus_driver.messages.write_message('\nConnect through TCP with host(hostname/ip) or serial number: ')
             self.nucleus_driver.messages.write_message('[0] Host')
-            self.nucleus_driver.messages.write_message('[1] Serial_number')
+            self.nucleus_driver.messages.write_message('[1] Serial number')
             reply = input('Input integer value in range [0:1]: ')
 
             if reply == '0':
@@ -122,11 +124,11 @@ class App(cmd2.Cmd):
             config_status = tcp_configuration()
 
             # This may be added when nucleus_driver fully supports the streaming port
-            """ port = None
+            port = None
             if config_status:
-                config_status, port = tcp_port_configuration() """
+                config_status, port = tcp_port_configuration()
 
-            if config_status: # and port == 9000:
+            if config_status and port == 9000:
                 password = input('\ntcp - password: ')
 
         if not config_status:
@@ -135,8 +137,14 @@ class App(cmd2.Cmd):
 
         if self.nucleus_driver.connect(connection_type=connect_args.connection_type, password=password):
             self.nucleus_driver.messages.write_message('\r\nSuccessfully connected to Nucleus device\r\n')
-            self.nucleus_driver.messages.write_message('ID:    {}'.format(self.nucleus_driver.connection.nucleus_id))
-            self.nucleus_driver.messages.write_message('GETFW: {}\r\n'.format(self.nucleus_driver.connection.firmware_version))
+
+            if self.nucleus_driver.streaming_socket:
+                self.nucleus_driver.messages.write_warning('You are connected to the streaming port. Commands will not work. Use port 9000 for commands and streaming.\r\n')
+                self.streaming_socket = True
+            else:
+                self.nucleus_driver.messages.write_message('ID:    {}'.format(self.nucleus_driver.connection.nucleus_id))
+                self.nucleus_driver.messages.write_message('GETFW: {}\r\n'.format(self.nucleus_driver.connection.firmware_version))
+
         else:
             self.nucleus_driver.messages.write_warning('\r\nFailed to connect to Nucleus device\r\n')
 
@@ -161,6 +169,7 @@ class App(cmd2.Cmd):
 
         if self.nucleus_driver.disconnect():
             self.nucleus_driver.messages.write_message('Disconnected from Nucleus device')
+            self.streaming_socket = False
         else:
             self.nucleus_driver.messages.write_warning('Failed to disconnect from Nucleus Device')
 

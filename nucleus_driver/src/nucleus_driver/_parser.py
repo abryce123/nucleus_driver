@@ -7,6 +7,9 @@ from threading import Thread
 from datetime import datetime
 import time
 
+MAX_STREAMING_TIMEOUT = 5.0
+MIN_STREAMING_TIMEOUT = 0.1
+UPDATE_STREAMING_TIMEOUT = True
 
 class Parser:
     FAMILY_ID_NUCLEUS = 0x20
@@ -55,6 +58,10 @@ class Parser:
         self.nucleus_running = False
         self.packet_timestamp = datetime.now()
 
+        self.last_packet_time = None
+        self.streaming_timeout = MAX_STREAMING_TIMEOUT
+        self.streaming_deltas = {}
+
     def init_packet_queue(self, maxsize=0):
 
         if not self.thread_running:
@@ -75,6 +82,46 @@ class Parser:
             self.ascii_queue = Queue(maxsize=maxsize)
         else:
             self.messages.write_warning('can not initiate queue when parser is running')
+
+    def is_streaming(self):
+        if self.last_packet_time is None:
+            return False
+
+        return (datetime.now().timestamp() - self.last_packet_time) < self.streaming_timeout
+
+    def _update_streaming_timeout(self, packet_id, last_packet_time):
+
+        if packet_id not in self.streaming_deltas:
+            self.streaming_deltas[packet_id] = {
+                                            'delta': None,
+                                            'last_packet_time': last_packet_time,
+                                        }
+        else:
+            new_delta = last_packet_time - self.streaming_deltas[packet_id]['last_packet_time']
+
+            if self.streaming_deltas[packet_id]['delta'] is None:
+                self.streaming_deltas[packet_id]['delta'] = new_delta
+            else:
+                self.streaming_deltas[packet_id]['delta'] = new_delta if new_delta > self.streaming_deltas[packet_id]['delta'] else self.streaming_deltas[packet_id]['delta']
+
+            self.streaming_deltas[packet_id]['last_packet_time'] = last_packet_time
+        
+        min_delta = min((delta['delta'] for delta in self.streaming_deltas.values() if delta['delta'] is not None), default=None)
+        self.streaming_timeout = max(min_delta * 1.5, MIN_STREAMING_TIMEOUT)  
+
+    def update_is_steaming(self, packet_id):
+
+        last_packet_time = datetime.now().timestamp()
+        
+        if UPDATE_STREAMING_TIMEOUT:
+            self._update_streaming_timeout(packet_id, last_packet_time)
+
+        self.last_packet_time = last_packet_time
+
+    def reset_is_streaming(self):
+
+        self.streaming_timeout = MAX_STREAMING_TIMEOUT
+        self.last_packet_time = None
 
     def set_queuing(self, packet: bool = None, ascii: bool = None, condition: bool = None):
 
@@ -260,6 +307,9 @@ class Parser:
                 self.write_ascii(packet)
 
             elif data_checksum:
+
+                self.update_is_steaming(packet['id'])
+
                 self.write_packet(packet)
 
             else:

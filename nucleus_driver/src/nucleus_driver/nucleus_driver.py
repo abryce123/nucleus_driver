@@ -34,6 +34,8 @@ class NucleusDriver:
 
         self.logging_fieldcal = False
 
+        self.streaming_socket = False
+
     ###########################################
     # Connection
     ###########################################
@@ -60,12 +62,17 @@ class NucleusDriver:
 
         connections_status = self.connection.connect(connection_type=connection_type, password=password)
 
+        if self.connection.get_connection_type() == 'tcp' and self.connection.tcp_configuration.port == 9002:
+            self.streaming_socket = True
+
         if not self.parser.reset_thread_lock():
             self.messages.write_warning('Failed to reset thread lock after establishing Nucleus connection')
 
         return connections_status
 
     def disconnect(self) -> bool:
+
+        self.streaming_socket = False
 
         return self.connection.disconnect()
 
