@@ -7,6 +7,12 @@ from serial.serialutil import SerialException
 import socket
 import select
 import errno
+from enum import Enum
+
+class Port(Enum):
+    COMMAND = '9000'
+    STREAM = '9002'
+
 
 
 class Connection:

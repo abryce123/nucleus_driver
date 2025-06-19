@@ -1,8 +1,18 @@
 import os
 import cmd2
 from cmd2 import Fg, style, Cmd2ArgumentParser, with_argparser, with_category
-
+from functools import wraps
 from nucleus_driver import NucleusDriver, __version__
+
+
+def block_if_streaming_socket(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self.streaming_socket:
+            self.nucleus_driver.messages.write_warning('This command is not available when connected to a streaming-only port.')
+            return
+        return func(self, *args, **kwargs)
+    return wrapper
 
 
 class App(cmd2.Cmd):
@@ -32,6 +42,8 @@ class App(cmd2.Cmd):
         self.intro = style(''.join(intro), fg=Fg.BLUE, bold=True)
         self.intro += style(f' Version: {__version__}\r\n', fg=Fg.MAGENTA)
 
+        self.streaming_socket = False
+
         del cmd2.Cmd.do_edit
         del cmd2.Cmd.do_alias
         del cmd2.Cmd.do_macro
@@ -43,7 +55,7 @@ class App(cmd2.Cmd):
 
     connect_parser = Cmd2ArgumentParser(description='Connect to nucleus device')
     connect_parser.add_argument('connection_type', choices=['serial', 'tcp'], help='connect to nucleus device through serial or tcp')
-
+    
     @with_argparser(connect_parser)
     @with_category(CMD_CAT_CONNECTING)
     def do_connect(self, connect_args):
@@ -63,7 +75,7 @@ class App(cmd2.Cmd):
 
             self.nucleus_driver.messages.write_message('\nConnect through TCP with host(hostname/ip) or serial number: ')
             self.nucleus_driver.messages.write_message('[0] Host')
-            self.nucleus_driver.messages.write_message('[1] Serial_number')
+            self.nucleus_driver.messages.write_message('[1] Serial number')
             reply = input('Input integer value in range [0:1]: ')
 
             if reply == '0':
@@ -122,11 +134,11 @@ class App(cmd2.Cmd):
             config_status = tcp_configuration()
 
             # This may be added when nucleus_driver fully supports the streaming port
-            """ port = None
+            port = None
             if config_status:
-                config_status, port = tcp_port_configuration() """
+                config_status, port = tcp_port_configuration()
 
-            if config_status: # and port == 9000:
+            if config_status and port == 9000:
                 password = input('\ntcp - password: ')
 
         if not config_status:
@@ -135,8 +147,14 @@ class App(cmd2.Cmd):
 
         if self.nucleus_driver.connect(connection_type=connect_args.connection_type, password=password):
             self.nucleus_driver.messages.write_message('\r\nSuccessfully connected to Nucleus device\r\n')
-            self.nucleus_driver.messages.write_message('ID:    {}'.format(self.nucleus_driver.connection.nucleus_id))
-            self.nucleus_driver.messages.write_message('GETFW: {}\r\n'.format(self.nucleus_driver.connection.firmware_version))
+
+            if self.nucleus_driver.streaming_socket:
+                self.nucleus_driver.messages.write_warning('You are connected to the streaming port. Commands to Nucleus will not work and functionality of driver will be limited. Use port 9000 for commands and streaming.\r\n')
+                self.streaming_socket = True
+            else:
+                self.nucleus_driver.messages.write_message('ID:    {}'.format(self.nucleus_driver.connection.nucleus_id))
+                self.nucleus_driver.messages.write_message('GETFW: {}\r\n'.format(self.nucleus_driver.connection.firmware_version))
+
         else:
             self.nucleus_driver.messages.write_warning('\r\nFailed to connect to Nucleus device\r\n')
 
@@ -161,6 +179,7 @@ class App(cmd2.Cmd):
 
         if self.nucleus_driver.disconnect():
             self.nucleus_driver.messages.write_message('Disconnected from Nucleus device')
+            self.streaming_socket = False
         else:
             self.nucleus_driver.messages.write_warning('Failed to disconnect from Nucleus Device')
 
@@ -180,13 +199,19 @@ class App(cmd2.Cmd):
         if path is not None:
             self.nucleus_driver.set_log_path(path=path)
 
-        self.nucleus_driver.start_measurement_and_logging()
+        if self.streaming_socket:
+            self.nucleus_driver.messages.write_message('You are connected to the streaming port. Starting logging only')
+            self.nucleus_driver.start_logging()
+        else:
+            self.nucleus_driver.messages.write_message('Starting Nucleus and logging')
+            self.nucleus_driver.start_measurement_and_logging()
 
     start_field_calibration_parser = Cmd2ArgumentParser(description='Start field calibration')
     start_field_calibration_parser.add_argument('-p', '--path', help='Set path for log files', completer=cmd2.Cmd.path_complete)
 
     @with_argparser(start_field_calibration_parser)
     @with_category(CMD_CAT_LOGGING)
+    @block_if_streaming_socket
     def do_fieldcal(self, start_field_calibration_args):
 
         path = start_field_calibration_args.path
@@ -211,13 +236,15 @@ class App(cmd2.Cmd):
             return
 
         self.nucleus_driver.stop_logging()
-        self.nucleus_driver.stop()
+        if not self.streaming_socket:
+            self.nucleus_driver.stop()
 
     command_parser = Cmd2ArgumentParser(description='Send command to nucleus')
     command_parser.add_argument('command', help='send command to nucleus device and print response')
 
     @with_argparser(command_parser)
     @with_category(CMD_CAT_COMMAND)
+    @block_if_streaming_socket
     def do_command(self, command_args):
 
         command = command_args.command
@@ -243,6 +270,7 @@ class App(cmd2.Cmd):
 
     @with_argparser(flash_firmware_parser)
     @with_category(CMD_CAT_FLASH)
+    @block_if_streaming_socket
     def do_flash_firmware(self, set_flash_path_args):
 
         if not self.nucleus_driver.connection.get_connection_status():
@@ -274,6 +302,7 @@ class App(cmd2.Cmd):
 
     @with_argparser(download_asserts_parser)
     @with_category(CMD_CAT_ASSERT)
+    @block_if_streaming_socket
     def do_assert_download(self, download_asserts_args):
 
         path = download_asserts_args.path
@@ -293,6 +322,7 @@ class App(cmd2.Cmd):
 
     @with_argparser(clear_asserts_parser)
     @with_category(CMD_CAT_ASSERT)
+    @block_if_streaming_socket
     def do_assert_clear(self, _):
 
         if not self.nucleus_driver.connection.get_connection_status():
@@ -318,6 +348,7 @@ class App(cmd2.Cmd):
 
     @with_argparser(download_syslog_parser)
     @with_category(CMD_CAT_SYSLOG)
+    @block_if_streaming_socket
     def do_syslog_download(self, download_syslog_args):
 
         path = download_syslog_args.path
@@ -337,6 +368,7 @@ class App(cmd2.Cmd):
 
     @with_argparser(clear_syslog_parser)
     @with_category(CMD_CAT_SYSLOG)
+    @block_if_streaming_socket
     def do_syslog_clear(self, _):
 
         if not self.nucleus_driver.connection.get_connection_status():
@@ -370,6 +402,7 @@ class App(cmd2.Cmd):
 
     @with_argparser(download_dvl_parser)
     @with_category(CMD_CAT_DOWNLOAD)
+    @block_if_streaming_socket
     def do_download_dvl_data(self, download_dvl_args):
 
         fid = download_dvl_args.fid
@@ -409,6 +442,7 @@ class App(cmd2.Cmd):
 
     @with_argparser(download_nucleus_parser)
     @with_category(CMD_CAT_DOWNLOAD)
+    @block_if_streaming_socket
     def do_download_nucleus_data(self, download_nucleus_args):
 
         fid = download_nucleus_args.fid
@@ -465,6 +499,7 @@ class App(cmd2.Cmd):
 
     @with_argparser(list_files_parser)
     @with_category(CMD_CAT_DOWNLOAD)
+    @block_if_streaming_socket
     def do_list_files(self, list_files_args):
 
         data_type = list_files_args.data_type
