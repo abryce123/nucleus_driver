@@ -93,21 +93,20 @@ class Parser:
 
         if packet_id not in self.streaming_deltas:
             self.streaming_deltas[packet_id] = {
-                                            'delta': None,
-                                            'last_packet_time': last_packet_time,
-                                        }
+                                                    'delta': None,
+                                                    'last_packet_time': last_packet_time,
+                                                }
         else:
             new_delta = last_packet_time - self.streaming_deltas[packet_id]['last_packet_time']
 
-            if self.streaming_deltas[packet_id]['delta'] is None:
-                self.streaming_deltas[packet_id]['delta'] = new_delta
-            else:
-                self.streaming_deltas[packet_id]['delta'] = new_delta if new_delta > self.streaming_deltas[packet_id]['delta'] else self.streaming_deltas[packet_id]['delta']
-
+            self.streaming_deltas[packet_id]['delta'] = new_delta
             self.streaming_deltas[packet_id]['last_packet_time'] = last_packet_time
         
         min_delta = min((delta['delta'] for delta in self.streaming_deltas.values() if delta['delta'] is not None), default=None)
-        self.streaming_timeout = max(min_delta * 1.5, MIN_STREAMING_TIMEOUT)  
+        if min_delta is None:
+            self.streaming_timeout = MAX_STREAMING_TIMEOUT
+        else:
+            self.streaming_timeout = min(max(min_delta * 1.5, MIN_STREAMING_TIMEOUT), MAX_STREAMING_TIMEOUT)
 
     def update_is_steaming(self, packet_id):
 
@@ -721,6 +720,7 @@ class Parser:
         self.write_ascii(packet=ascii_packet)
 
     def add_data(self, data):
+        
         for value in data:
             if value == 0xa5 and not self.reading_packet:
                 self.reading_packet = True

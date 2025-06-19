@@ -114,6 +114,9 @@ class NucleusDriver:
 
     def start_logging(self):
 
+        if not self.parser.thread_running:
+            self.parser.start()
+            
         return self.logger.start()
 
     def stop_logging(self):
