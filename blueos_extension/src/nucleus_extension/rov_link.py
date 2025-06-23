@@ -392,11 +392,17 @@ class RovLink:
         url = f'{HOST_URL}/mavlink2rest/mavlink/{vehicle_path}/HEARTBEAT'
 
         response = self._get(url=url)
-
-        if str(response.status_code).startswith('2') and response.json()["message"]["type"] == "HEARTBEAT":
-            logging.info(f'{self.timestamp()} Heartbeat detected')
-            self.status['heartbeat'] = 'OK'
-            self._heartbeat = True
+            
+        if str(response.status_code).startswith('2'):
+            try:
+                data = response.json()
+                if data.get("message", {}).get("type") == "HEARTBEAT":
+                 # Successfully got heartbeat
+                    logging.info(f'{self.timestamp()} Heartbeat detected')
+                    self.status['heartbeat'] = 'OK'
+                    self._heartbeat = True
+            except requests.exceptions.JSONDecodeError:
+                print("[heartbeat] Warning: invalid JSON response:", response.text)
 
         else:
             logging.warning(f'{self.timestamp()} Failed to detect heartbeat')
