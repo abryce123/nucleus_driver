@@ -9,10 +9,10 @@ ENV PATH="/home/pi/.local/bin:${PATH}"
 
 RUN pip install --upgrade pip
 
-COPY requirements.txt /tmp/
+COPY blueos_extension/requirements.txt /tmp/
 RUN pip install --user -r /tmp/requirements.txt
 
-COPY --chown=pi:pi . /home/pi/blueos_extension
+COPY --chown=pi:pi blueos_extension/ /home/pi/blueos_extension
 
 WORKDIR /home/pi/blueos_extension
 
