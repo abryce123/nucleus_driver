@@ -13,11 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Blue OS Nucleus Driver
-        uses: abryce123/blueos_nucleus_driver_64@1.0
+        uses: BlueOS-community/Deploy-BlueOS-Extension@v1
         # specify the desired variables
         with:
-          context: .
-          file: ./nucleus_driver/blueos_extension/Dockerfile
+          dockerfile-location: ./nucleus_driver/blueos_extension/Dockerfile
           docker-username: ${{ secrets.DOCKER_USERNAME }}
           docker-password: ${{ secrets.DOCKER_PASSWORD }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
