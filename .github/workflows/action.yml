@@ -12,8 +12,8 @@ jobs:
     # set the agent to run on
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy BlueOS Extension
-        uses: BlueOS-community/Deploy-BlueOS-Extension@v1
+      - name: Blue OS Nucleus Driver
+        uses: abryce123/blueos_nucleus_driver_64@1.0
         # specify the desired variables
         with:
           context: .
