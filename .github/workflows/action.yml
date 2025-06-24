@@ -12,6 +12,8 @@ jobs:
     # set the agent to run on
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Blue OS Nucleus Driver
         uses: BlueOS-community/Deploy-BlueOS-Extension@v1
         # specify the desired variables
