@@ -17,6 +17,7 @@ COPY --chown=pi:pi blueos_extension/ /home/pi/blueos_extension
 WORKDIR /home/pi/blueos_extension
 
 EXPOSE 80/tcp
+EXPOSE 5000/tcp
 
 LABEL version="1.0.1"
 LABEL permissions='\
