@@ -16,7 +16,7 @@ jobs:
         uses: BlueOS-community/Deploy-BlueOS-Extension@v1
         # specify the desired variables
         with:
-          dockerfile-location: ./nucleus_driver/blueos_extension/Dockerfile
+          dockerfile-location: ./blueos_extension/Dockerfile
           docker-username: ${{ secrets.DOCKER_USERNAME }}
           docker-password: ${{ secrets.DOCKER_PASSWORD }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
