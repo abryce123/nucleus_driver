@@ -42,7 +42,7 @@ pip3 install -r requirements
 Source ros2 base layer
 
 ```
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 ```
 
 Build ros2 Nucleus driver with colcon. Refer to troubleshooting section for potential issues
@@ -56,7 +56,7 @@ colcon build
 In any new terminal that should run a node, first source the base layer
 
 ```
-source /opt/ros/humble/setup.bash
+source /opt/ros//setup.bash
 ```
 
 Then, source the installation
